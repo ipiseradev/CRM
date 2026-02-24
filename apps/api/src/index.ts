@@ -62,6 +62,38 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root helpers for production hosting (e.g. Vercel custom domains)
+app.get('/', (req, res) => {
+  res.status(200).json({
+    ok: true,
+    data: {
+      service: 'SalesCore API',
+      status: 'online',
+      docs: env.NODE_ENV !== 'production' ? '/docs' : null,
+      health: '/health',
+      basePath: '/api',
+    },
+  });
+});
+
+app.get('/api', (req, res) => {
+  res.status(200).json({
+    ok: true,
+    data: {
+      message: 'SalesCore API base path',
+      health: '/health',
+      routes: [
+        '/api/auth',
+        '/api/clients',
+        '/api/deals',
+        '/api/tasks',
+        '/api/activities',
+        '/api/metrics',
+      ],
+    },
+  });
+});
+
 // ─── Swagger Documentation (dev only) ────────────────────────────────────────
 if (env.NODE_ENV !== 'production') {
   setupSwagger(app);
