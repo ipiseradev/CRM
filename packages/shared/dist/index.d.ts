@@ -24,13 +24,26 @@ export interface PaginatedResult<T> {
 export interface MetricsSummary {
     total_clients: number;
     total_deals: number;
+    active_deals: number;
     deals_by_stage: Record<string, number>;
     won_value_sum: number;
     conversion_rate: number;
+    pipeline_value: number;
+    avg_deal_value: number;
+    avg_close_days: number;
+    pending_tasks: number;
+    whatsapp_connected: boolean;
+    comparison: {
+        clients_vs_previous: number;
+        active_deals_vs_previous: number;
+        won_value_vs_previous: number;
+        conversion_vs_previous: number;
+    };
     recent_deals: Array<{
         id: string;
         title: string;
         client_name: string;
+        owner_name: string;
         value: number;
         stage: string;
         created_at: string;
