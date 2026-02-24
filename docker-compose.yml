@@ -1,0 +1,98 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: salescore_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: salescore
+      POSTGRES_PASSWORD: salescore123
+      POSTGRES_DB: salescore_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U salescore -d salescore_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: salescore_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://salescore:salescore123@postgres:5432/salescore_db
+      JWT_SECRET: salescore-super-secret-jwt-key-change-in-production-2024
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: salescore-super-secret-refresh-key-change-in-production-2024
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:3000
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX: 100
+    ports:
+      - '4000:4000'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:4000/health || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: salescore_web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      NODE_ENV: production
+    ports:
+      - '3000:3000'
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: salescore_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://salescore:salescore123@postgres:5432/salescore_db
+    command: ['node', '-e', "require('ts-node').register(); require('./src/scripts/migrate.ts')"]
+    profiles:
+      - migrate
+
+  seed:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: salescore_seed
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://salescore:salescore123@postgres:5432/salescore_db
+      JWT_SECRET: salescore-super-secret-jwt-key-change-in-production-2024
+      JWT_REFRESH_SECRET: salescore-super-secret-refresh-key-change-in-production-2024
+    command: ['node', '-e', "require('ts-node').register(); require('./src/scripts/seed.ts')"]
+    profiles:
+      - seed
+
+volumes:
+  postgres_data:
+    driver: local
