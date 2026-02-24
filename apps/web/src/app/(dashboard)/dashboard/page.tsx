@@ -15,6 +15,8 @@ import {
   Info,
   Clock3,
   Wallet,
+  Target,
+  PhoneCall,
 } from 'lucide-react';
 import {
   BarChart,
@@ -31,25 +33,25 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { formatCurrency, formatRelativeTime } from '@/lib/utils';
-import type { MetricsSummary } from '@salescore/shared';
+import type { MetricsSummary, Task, Client, Deal } from '@salescore/shared';
 import { DEAL_STAGE_LABELS } from '@salescore/shared';
 
 const STAGE_COLORS: Record<string, string> = {
-  NEW: '#6366f1',
-  CONTACTED: '#3b82f6',
-  QUOTE_SENT: '#f59e0b',
-  WAITING: '#8b5cf6',
-  WON: '#10b981',
-  LOST: '#ef4444',
+  NEW: '#111827',
+  CONTACTED: '#1f2937',
+  QUOTE_SENT: '#374151',
+  WAITING: '#4b5563',
+  WON: '#6b7280',
+  LOST: '#9ca3af',
 };
 
-const STAGE_BADGE_VARIANTS: Record<string, 'default' | 'info' | 'warning' | 'purple' | 'success' | 'destructive'> = {
-  NEW: 'default',
-  CONTACTED: 'info',
-  QUOTE_SENT: 'warning',
-  WAITING: 'purple',
-  WON: 'success',
-  LOST: 'destructive',
+const STAGE_BADGE_VARIANTS: Record<string, 'gray'> = {
+  NEW: 'gray',
+  CONTACTED: 'gray',
+  QUOTE_SENT: 'gray',
+  WAITING: 'gray',
+  WON: 'gray',
+  LOST: 'gray',
 };
 
 type FilterPeriod = 'today' | 'week' | 'month' | 'custom';
@@ -89,10 +91,10 @@ function KpiCard({
   tooltip?: string;
 }) {
   const colorMap: Record<string, string> = {
-    brand: 'bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300',
-    green: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300',
-    amber: 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300',
-    blue: 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300',
+    brand: 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900',
+    green: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+    amber: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+    blue: 'bg-slate-50 text-slate-700 dark:bg-slate-900 dark:text-slate-200',
   };
 
   return (
@@ -113,11 +115,11 @@ function KpiCard({
             {typeof trend === 'number' && (
               <div className="mt-2 flex items-center gap-1.5">
                 {trend >= 0 ? (
-                  <ArrowUpRight className="h-3.5 w-3.5 text-emerald-500" />
+                  <ArrowUpRight className="h-3.5 w-3.5 text-slate-500" />
                 ) : (
-                  <ArrowDownRight className="h-3.5 w-3.5 text-rose-500" />
+                  <ArrowDownRight className="h-3.5 w-3.5 text-slate-500" />
                 )}
-                <span className={`text-xs font-semibold ${trend >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                   {trend >= 0 ? `+${trend}` : trend}
                 </span>
                 <span className="text-xs text-slate-500 dark:text-slate-400">vs periodo anterior</span>
@@ -156,6 +158,9 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = React.useState<MetricsSummary | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [upcomingTasks, setUpcomingTasks] = React.useState<Task[]>([]);
+  const [clientsMap, setClientsMap] = React.useState<Record<string, string>>({});
+  const [dealsMap, setDealsMap] = React.useState<Record<string, string>>({});
 
   const [period, setPeriod] = React.useState<FilterPeriod>('month');
   const [customFrom, setCustomFrom] = React.useState('');
@@ -207,6 +212,35 @@ export default function DashboardPage() {
     fetchMetrics();
   }, [period, customFrom, customTo]);
 
+  React.useEffect(() => {
+    const fetchFollowUps = async () => {
+      try {
+        const [tasksRes, clientsRes, dealsRes] = await Promise.all([
+          api.get<{ items: Task[] }>('/tasks?filter=upcoming&limit=8'),
+          api.get<{ items: Client[] }>('/clients?limit=200'),
+          api.get<{ items: Deal[] }>('/deals?limit=200'),
+        ]);
+
+        const nextTasks = tasksRes.items
+          .filter((task) => !task.done)
+          .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+          .slice(0, 4);
+
+        setUpcomingTasks(nextTasks);
+        setClientsMap(
+          Object.fromEntries(clientsRes.items.map((client) => [client.id, client.name]))
+        );
+        setDealsMap(
+          Object.fromEntries(dealsRes.items.map((deal) => [deal.id, deal.title]))
+        );
+      } catch {
+        setUpcomingTasks([]);
+      }
+    };
+
+    fetchFollowUps();
+  }, []);
+
   if (loading) {
     return <DashboardSkeleton />;
   }
@@ -235,6 +269,8 @@ export default function DashboardPage() {
 
   const conversionPct = metrics.conversion_rate;
   const topStage = distribution[0];
+  const monthlyTarget = Math.max(1000000, Math.ceil(metrics.pipeline_value / 500000) * 500000);
+  const monthlyProgress = Math.min(100, Math.round((metrics.won_value_sum / monthlyTarget) * 100));
 
   return (
     <div className="space-y-6">
@@ -244,14 +280,14 @@ export default function DashboardPage() {
           <p className="mt-1 text-slate-500 dark:text-slate-400">Visualiza rendimiento, pipeline y oportunidades accionables.</p>
         </div>
 
-        <div className="glass flex flex-wrap items-center gap-2 rounded-xl border border-white/80 dark:border-slate-700/50 p-2 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           {[{ id: 'today', label: 'Hoy' }, { id: 'week', label: 'Esta semana' }, { id: 'month', label: 'Este mes' }, { id: 'custom', label: 'Personalizado' }].map((item) => (
             <Button
               key={item.id}
-              variant={period === item.id ? 'brand' : 'outline'}
+              variant="outline"
               size="sm"
               onClick={() => setPeriod(item.id as FilterPeriod)}
-              className="h-8"
+              className={`h-8 ${period === item.id ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-200 dark:bg-slate-200 dark:text-slate-900' : ''}`}
             >
               <CalendarRange className="mr-1.5 h-3.5 w-3.5" />
               {item.label}
@@ -296,13 +332,13 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-2.5">
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300">Conversion</p>
-                  <p className="text-lg font-bold text-emerald-800 dark:text-emerald-200">{conversionPct}%</p>
+                <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-2.5">
+                  <p className="text-xs text-slate-600 dark:text-slate-300">Conversion</p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{conversionPct}%</p>
                 </div>
-                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-2.5">
-                  <p className="text-xs text-amber-700 dark:text-amber-300">Pendientes</p>
-                  <p className="text-lg font-bold text-amber-800 dark:text-amber-200">{metrics.pending_tasks}</p>
+                <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-2.5">
+                  <p className="text-xs text-slate-600 dark:text-slate-300">Pendientes</p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{metrics.pending_tasks}</p>
                 </div>
               </div>
             </CardContent>
@@ -313,9 +349,9 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-semibold">Acciones Clave</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Link href="/deals" className="block rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 p-3 text-white shadow-md">
+              <Link href="/deals" className="block rounded-xl bg-slate-900 p-3 text-white shadow-md transition-colors hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200">
                 <p className="text-sm font-semibold">Crear nuevo deal</p>
-                <p className="text-xs text-white/85">Accion recomendada</p>
+                <p className="text-xs text-white/85 dark:text-slate-600">Accion recomendada</p>
               </Link>
               <Link href="/tasks" className="block rounded-xl border border-slate-200 dark:border-slate-700 p-3 hover:bg-slate-50 dark:hover:bg-slate-800">
                 <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Revisar tareas pendientes</p>
@@ -367,7 +403,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="flex items-center justify-between p-5">
             <div>
@@ -377,7 +413,7 @@ export default function DashboardPage() {
               </div>
               <p className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(metrics.pipeline_value)}</p>
             </div>
-            <Wallet className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+            <Wallet className="h-5 w-5 text-slate-700 dark:text-slate-300" />
           </CardContent>
         </Card>
         <Card>
@@ -389,7 +425,7 @@ export default function DashboardPage() {
               </div>
               <p className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(metrics.avg_deal_value)}</p>
             </div>
-            <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <DollarSign className="h-5 w-5 text-slate-700 dark:text-slate-300" />
           </CardContent>
         </Card>
         <Card>
@@ -401,7 +437,24 @@ export default function DashboardPage() {
               </div>
               <p className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">{metrics.avg_close_days} dias</p>
             </div>
-            <Clock3 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <Clock3 className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Objetivo del mes</p>
+                <p className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">{monthlyProgress}%</p>
+              </div>
+              <Target className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+              <div className="h-full rounded-full bg-slate-900 dark:bg-slate-100" style={{ width: `${monthlyProgress}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {formatCurrency(metrics.won_value_sum)} de {formatCurrency(monthlyTarget)}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -409,7 +462,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Deals por etapa (clic para abrir)</CardTitle>
+            <CardTitle className="text-base font-semibold">Deals por etapa (click para abrir)</CardTitle>
           </CardHeader>
           <CardContent>
             {chartData.length === 0 ? (
@@ -437,43 +490,91 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Distribucion por impacto</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {distribution.map((item) => {
-                const pct = distributionTotal > 0 ? Math.round((item.count / distributionTotal) * 100) : 0;
-                return (
-                  <button
-                    key={item.stageKey}
-                    onClick={() => router.push(`/deals?stage=${item.stageKey}`)}
-                    className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    <div className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: STAGE_COLORS[item.stageKey] || '#06b6d4' }} />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{item.stageLabel}</span>
-                        <span className="text-xs text-slate-500 dark:text-slate-400">{pct}% ({item.count} deals)</span>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Distribucion por impacto</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {distribution.map((item) => {
+                  const pct = distributionTotal > 0 ? Math.round((item.count / distributionTotal) * 100) : 0;
+                  return (
+                    <button
+                      key={item.stageKey}
+                      onClick={() => router.push(`/deals?stage=${item.stageKey}`)}
+                      className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      <div className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: STAGE_COLORS[item.stageKey] || '#06b6d4' }} />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{item.stageLabel}</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{pct}% ({item.count} deals)</span>
+                        </div>
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: STAGE_COLORS[item.stageKey] || '#06b6d4' }} />
+                        </div>
                       </div>
-                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: STAGE_COLORS[item.stageKey] || '#06b6d4' }} />
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Proximos seguimientos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {upcomingTasks.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400">No hay seguimientos proximos.</p>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingTasks.map((task) => {
+                    const displayName =
+                      task.related_type === 'CLIENT'
+                        ? clientsMap[task.related_id] || 'Cliente'
+                        : dealsMap[task.related_id] || 'Deal';
+                    const due = new Date(task.due_date);
+                    const hours = due.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                    const initials = displayName
+                      .split(' ')
+                      .slice(0, 2)
+                      .map((part) => part[0])
+                      .join('')
+                      .toUpperCase();
+
+                    return (
+                      <div key={task.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-700 dark:bg-slate-900/50">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white dark:bg-slate-100 dark:text-slate-900">
+                          {initials || 'CL'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{task.title}</p>
+                          <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                            {displayName} · {task.related_type === 'CLIENT' ? 'Contacto' : 'Deal'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                          <PhoneCall className="h-3.5 w-3.5" />
+                          {hours}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base font-semibold">Ultimos deals</CardTitle>
-            <Link href="/deals" className="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-400">
+            <Link href="/deals" className="text-xs font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100">
               Ver todos {'->'}
             </Link>
           </CardHeader>
@@ -489,12 +590,12 @@ export default function DashboardPage() {
                   <Link key={deal.id} href={`/deals/${deal.id}`} className="group block rounded-xl border border-transparent p-3 hover:border-slate-200 hover:bg-white dark:hover:border-slate-700 dark:hover:bg-slate-900">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 group-hover:text-brand-700 dark:group-hover:text-brand-400">{deal.title}</p>
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 group-hover:text-slate-700 dark:group-hover:text-slate-300">{deal.title}</p>
                         <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{deal.client_name}</p>
                         <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{formatRelativeTime(deal.created_at)} · {deal.owner_name}</p>
                       </div>
                       <div className="text-right">
-                        <p className={`text-sm font-semibold ${deal.stage === 'WON' ? 'text-emerald-600 dark:text-emerald-400' : deal.stage === 'LOST' ? 'text-rose-600 dark:text-rose-400' : 'text-sky-700 dark:text-sky-400'}`}>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                           {formatCurrency(deal.value)}
                         </p>
                         <Badge variant={STAGE_BADGE_VARIANTS[deal.stage] || 'default'} className="mt-1 text-[11px]">
@@ -515,9 +616,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Link href="/deals" className="rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 p-4 text-white shadow-lg transition-transform hover:-translate-y-0.5">
+              <Link href="/deals" className="rounded-xl bg-slate-900 p-4 text-white shadow-lg transition-colors hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200">
                 <p className="text-sm font-semibold">Nuevo Deal</p>
-                <p className="mt-1 text-xs text-white/85">Crea una oportunidad ahora</p>
+                <p className="mt-1 text-xs text-white/85 dark:text-slate-600">Crea una oportunidad ahora</p>
               </Link>
               <Link href="/clients" className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4 text-slate-800 dark:text-slate-200 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700">
                 <p className="text-sm font-semibold">Nuevo Cliente</p>
@@ -533,12 +634,12 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <div className="mt-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3">
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
               <div className="mb-2 flex items-center gap-2">
-                <CheckSquare className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Tareas pendientes</p>
+                <CheckSquare className="h-4 w-4 text-slate-700 dark:text-slate-300" />
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Tareas pendientes</p>
               </div>
-              <p className="text-sm text-amber-700 dark:text-amber-400">{metrics.pending_tasks} tareas abiertas para el equipo</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">{metrics.pending_tasks} tareas abiertas para el equipo</p>
             </div>
           </CardContent>
         </Card>

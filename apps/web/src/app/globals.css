@@ -81,7 +81,7 @@
 
 @layer components {
   .sa-page {
-    @apply mx-auto w-full max-w-[1560px] space-y-6;
+    @apply w-full max-w-[1560px] space-y-6;
   }
 
   .sa-shell {

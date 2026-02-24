@@ -35,7 +35,7 @@ export const errorHandler = (
   }
 
   // Postgres unique violation
-  const pgErr = err as Record<string, unknown>;
+  const pgErr = err as unknown as Record<string, unknown>;
   if (pgErr.code === '23505') {
     res.status(409).json({
       ok: false,

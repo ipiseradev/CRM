@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { HelpCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Navbar } from '@/components/layout/Navbar';
@@ -41,6 +42,13 @@ export default function DashboardLayout({
         <Navbar onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto">
           <div className="sa-page w-full p-4 pb-8 lg:p-8">{children}</div>
+          <button
+            className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-lg transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            type="button"
+          >
+            <HelpCircle className="h-4 w-4" />
+            Necesitas ayuda?
+          </button>
         </main>
       </div>
     </div>

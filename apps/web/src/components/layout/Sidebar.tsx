@@ -16,6 +16,8 @@ import {
   ChevronRight,
   Moon,
   Sun,
+  LogOut,
+  Lightbulb,
 } from 'lucide-react';
 import type { MetricsSummary } from '@salescore/shared';
 import { cn } from '@/lib/utils';
@@ -47,7 +49,7 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const [summary, setSummary] = React.useState<MetricsSummary | null>(null);
 
@@ -80,6 +82,13 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
   };
 
+  const handleLogout = async () => {
+    await logout();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+  };
+
   return (
     <>
       {open && (
@@ -91,7 +100,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
 
       <aside
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-full flex-col border-r border-border bg-card text-foreground shadow-xl transition-all duration-300 lg:static lg:z-auto',
+          'fixed left-0 top-0 z-50 flex h-full flex-col overflow-y-auto border-r border-border bg-card text-foreground shadow-xl transition-all duration-300 lg:static lg:z-auto',
           open ? 'translate-x-0' : '-translate-x-full',
           collapsed ? 'w-20' : 'w-72'
         )}
@@ -140,7 +149,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         )}
 
         {/* Navigation */}
-        <nav className="scrollbar-thin mt-4 flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+        <nav className="scrollbar-thin mt-4 space-y-1 px-3 pb-4 lg:flex-1 lg:overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -214,6 +223,18 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
           </div>
         )}
 
+        {!collapsed && (
+          <div className="mx-4 mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/40">
+            <div className="mb-1 flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-slate-700 dark:text-slate-300" />
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">Tip del dia</span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Los seguimientos antes de las 24 hs suelen aumentar la conversion.
+            </p>
+          </div>
+        )}
+
         {/* User info */}
         <div className="border-t border-border px-4 py-4">
           <div className={cn(
@@ -226,10 +247,29 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
             {!collapsed && (
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-foreground">{user?.name}</p>
-                <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {user?.role === 'ADMIN' ? 'Sales Manager' : 'Sales Rep'}
+                </p>
               </div>
             )}
           </div>
+          {!collapsed && (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Link
+                href="/settings"
+                className="rounded-lg border border-border px-2 py-1.5 text-center text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Configuracion
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center justify-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Salir
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 

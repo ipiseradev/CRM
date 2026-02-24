@@ -145,7 +145,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold">Demo disponible</p>
-                  <p className="mt-0.5 text-[11px]">admin@salescore.demo / demo1234</p>
+                  <p className="mt-0.5 text-[11px]"></p>
                 </div>
                 <Button type="button" size="sm" variant="outline" onClick={loadDemoCredentials} className="h-7 text-[11px]">
                   Cargar demo
@@ -169,7 +169,7 @@ export default function LoginPage() {
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Contrasena</Label>
+                  <Label htmlFor="password">Contraseña</Label>
                   <button
                     type="button"
                     className="text-xs font-medium text-slate-500 hover:text-slate-700"
