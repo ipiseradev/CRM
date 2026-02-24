@@ -265,40 +265,6 @@ GET    /api/metrics/summary   # KPIs del dashboard
 
 ---
 
-## 📸 Screenshots para LinkedIn
-
-Para sacar las mejores capturas para LinkedIn:
-
-### 1. Dashboard (más impactante)
-- URL: `http://localhost:3000/dashboard`
-- Asegurate de tener datos demo cargados
-- Capturá el dashboard completo con KPIs y gráfico
-
-### 2. Pipeline Kanban
-- URL: `http://localhost:3000/deals`
-- Seleccioná vista "Kanban"
-- Mostrá las columnas con deals en diferentes etapas
-
-### 3. Detalle de Cliente
-- URL: `http://localhost:3000/clients/[id]`
-- Mostrá el historial de actividades y deals
-
-### 4. Lista de Clientes
-- URL: `http://localhost:3000/clients`
-- Mostrá la tabla con datos reales
-
-### 5. Configuración / Branding
-- URL: `http://localhost:3000/settings`
-- Mostrá el panel de personalización
-
-### Tips para LinkedIn:
-- Usá modo oscuro del navegador para variedad
-- Capturá en resolución 1280x800 o superior
-- Mostrá el sidebar + contenido principal
-- Destacá el diseño responsive en mobile
-
----
-
 ## 🏗️ Arquitectura
 
 ```
